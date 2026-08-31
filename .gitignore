@@ -1,7 +1,10 @@
 build/
+__pycache__/
+.venv/
 data/
 models/
 outputs/
 *.exe
 *.o
+*.pyc
 
