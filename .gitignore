@@ -1,7 +1,7 @@
-__pycache__/
-.venv/
+build/
 data/
 models/
 outputs/
-*.pyc
+*.exe
+*.o
 
