@@ -21,6 +21,7 @@ cmake --build build
 python3 ml/src/prepare_stations_database.py ml/data/stations_database.json ml/data/stations_hourly.csv
 ./build/pklot_ml train ml/data/stations_hourly.csv ml/models/stations_load_forecaster.txt ml/models/stations_metrics.json
 ./build/pklot_ml predict ml/data/stations_hourly.csv ml/models/stations_load_forecaster.txt ml/models/stations_predictions.json 45.302
+python3 ml/src/export_predictions_sql.py ml/models/stations_predictions.json ml/models/stations_predictions.sql
 ```
 
 `demo` 会在临时目录完成生成、训练和预测，是项目的端到端自检。
@@ -58,8 +59,9 @@ python3 ml/src/prepare_stations_database.py ml/data/stations_database.json ml/da
 
 - `ml/data/stations_database.json`：站点与充电桩目录快照。
 - `ml/data/stations_hourly.csv`：由站点桩数和额定功率生成的模拟小时负载。
-- `ml/models/`：训练好的模型、指标与预测结果。
+- `ml/models/`：训练好的模型、指标、评估报告、预测结果与 SQL 导出结果。
 - `ml/src/prepare_stations_database.py`：从站点库重建训练集的标准库脚本。
+- `ml/src/export_predictions_sql.py`：把预测 JSON 转成数据库导入 SQL。
 
 重训命令：
 
@@ -67,6 +69,7 @@ python3 ml/src/prepare_stations_database.py ml/data/stations_database.json ml/da
 python3 ml/src/prepare_stations_database.py ml/data/stations_database.json ml/data/stations_hourly.csv
 ./build/pklot_ml train ml/data/stations_hourly.csv ml/models/stations_load_forecaster.txt ml/models/stations_metrics.json
 ./build/pklot_ml predict ml/data/stations_hourly.csv ml/models/stations_load_forecaster.txt ml/models/stations_predictions.json 45.302
+python3 ml/src/export_predictions_sql.py ml/models/stations_predictions.json ml/models/stations_predictions.sql
 ```
 
 ## 当前有意不做
