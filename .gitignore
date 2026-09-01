@@ -4,6 +4,11 @@ __pycache__/
 data/
 models/
 outputs/
+!ml/data/
+!ml/data/**
+!ml/models/
+!ml/models/**
+pklot_ml
 *.exe
 *.o
 *.pyc

@@ -18,9 +18,9 @@ cmake --build build
 ## 使用
 
 ```bash
-./build/pklot_ml generate data/history.csv 90 3
-./build/pklot_ml train data/history.csv models/load_forecaster.txt models/metrics.json
-./build/pklot_ml predict data/history.csv models/load_forecaster.txt outputs/predictions.json 7.0
+./build/pklot_ml generate ml/data/history.csv 90 3
+./build/pklot_ml train ml/data/history.csv ml/models/load_forecaster.txt ml/models/metrics.json
+./build/pklot_ml predict ml/data/history.csv ml/models/load_forecaster.txt outputs/predictions.json 7.0
 ```
 
 `demo` 会在临时目录完成生成、训练和预测，是项目的端到端自检。
@@ -51,6 +51,22 @@ cmake --build build
 
 训练指标同时报告模型与“未来负荷等于当前负荷”的持续值基线。
 `kw_per_pile` 默认 `7.0`，实际桩功率确定后再调整。
+
+## UrbanEV 训练资产
+
+`ml/` 中保存了当前可复现的训练资产：
+
+- `ml/data/urbanev_hourly.csv`：由官方 UrbanEV 小时级区域数据转换的训练集；每个区域作为虚拟站点。
+- `ml/models/`：训练好的模型、指标与预测结果。
+- `ml/src/prepare_urbanev.py`：从官方 `inf.csv` 与 `volume-11kW.csv` 重建训练集的标准库脚本。
+
+重训命令：
+
+```bash
+python3 ml/src/prepare_urbanev.py /path/to/UrbanEV/data ml/data/urbanev_hourly.csv
+./build/pklot_ml train ml/data/urbanev_hourly.csv ml/models/urbanev_load_forecaster.txt ml/models/urbanev_metrics.json
+./build/pklot_ml predict ml/data/urbanev_hourly.csv ml/models/urbanev_load_forecaster.txt ml/models/urbanev_predictions.json 7.0
+```
 
 ## 当前有意不做
 
