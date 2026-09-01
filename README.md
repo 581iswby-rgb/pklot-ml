@@ -18,9 +18,9 @@ cmake --build build
 ## 使用
 
 ```bash
-./build/pklot_ml generate ml/data/history.csv 90 3
-./build/pklot_ml train ml/data/history.csv ml/models/load_forecaster.txt ml/models/metrics.json
-./build/pklot_ml predict ml/data/history.csv ml/models/load_forecaster.txt outputs/predictions.json 7.0
+python3 ml/src/prepare_stations_database.py ml/data/stations_database.json ml/data/stations_hourly.csv
+./build/pklot_ml train ml/data/stations_hourly.csv ml/models/stations_load_forecaster.txt ml/models/stations_metrics.json
+./build/pklot_ml predict ml/data/stations_hourly.csv ml/models/stations_load_forecaster.txt ml/models/stations_predictions.json 45.302
 ```
 
 `demo` 会在临时目录完成生成、训练和预测，是项目的端到端自检。
@@ -50,22 +50,23 @@ cmake --build build
 - `recommended_station_ids`：未来 1 小时低拥堵站点排序
 
 训练指标同时报告模型与“未来负荷等于当前负荷”的持续值基线。
-`kw_per_pile` 默认 `7.0`，实际桩功率确定后再调整。
+`kw_per_pile` 默认 `7.0`；当前站点库预测使用全局平均单桩额定功率 `45.302`。
 
-## UrbanEV 训练资产
+## 当前训练资产
 
 `ml/` 中保存了当前可复现的训练资产：
 
-- `ml/data/urbanev_hourly.csv`：由官方 UrbanEV 小时级区域数据转换的训练集；每个区域作为虚拟站点。
+- `ml/data/stations_database.json`：站点与充电桩目录快照。
+- `ml/data/stations_hourly.csv`：由站点桩数和额定功率生成的模拟小时负载。
 - `ml/models/`：训练好的模型、指标与预测结果。
-- `ml/src/prepare_urbanev.py`：从官方 `inf.csv` 与 `volume-11kW.csv` 重建训练集的标准库脚本。
+- `ml/src/prepare_stations_database.py`：从站点库重建训练集的标准库脚本。
 
 重训命令：
 
 ```bash
-python3 ml/src/prepare_urbanev.py /path/to/UrbanEV/data ml/data/urbanev_hourly.csv
-./build/pklot_ml train ml/data/urbanev_hourly.csv ml/models/urbanev_load_forecaster.txt ml/models/urbanev_metrics.json
-./build/pklot_ml predict ml/data/urbanev_hourly.csv ml/models/urbanev_load_forecaster.txt ml/models/urbanev_predictions.json 7.0
+python3 ml/src/prepare_stations_database.py ml/data/stations_database.json ml/data/stations_hourly.csv
+./build/pklot_ml train ml/data/stations_hourly.csv ml/models/stations_load_forecaster.txt ml/models/stations_metrics.json
+./build/pklot_ml predict ml/data/stations_hourly.csv ml/models/stations_load_forecaster.txt ml/models/stations_predictions.json 45.302
 ```
 
 ## 当前有意不做
