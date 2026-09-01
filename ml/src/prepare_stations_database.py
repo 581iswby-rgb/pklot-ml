@@ -25,8 +25,8 @@ def main(source, output, days=28):
 
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("w", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow(["timestamp_epoch", "station_id", "total_piles", "load_kw"])
+        writer = csv.writer(file, lineterminator="\n")
+        writer.writerow(["timestamp_epoch", "station_id", "total_piles", "capacity_kw", "load_kw"])
         for station in data["stations"]:
             station_id = int(station["id"])
             powers = pile_power.get(station_id, [])
@@ -44,7 +44,8 @@ def main(source, output, days=28):
                 evening = 0.32 * math.exp(-((hour - 18 - phase) / 3.6) ** 2)
                 base = 0.08 + morning + evening
                 utilization = min(0.92, max(0.01, base * profile * (0.82 if weekend else 1.0) + rng.gauss(0.0, 0.025)))
-                writer.writerow([int(now.timestamp()), station_id, total_piles, round(capacity_kw * utilization, 3)])
+                writer.writerow([int(now.timestamp()), station_id, total_piles,
+                                 round(capacity_kw, 3), round(capacity_kw * utilization, 3)])
 
 
 if __name__ == "__main__":

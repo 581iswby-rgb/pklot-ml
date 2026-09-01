@@ -30,6 +30,7 @@ struct Record {
     std::int64_t timestamp_epoch{};
     int station_id{};
     int total_piles{};
+    double capacity_kw{};
     double load_kw{};
 };
 
@@ -104,7 +105,7 @@ void generate_data(const fs::path& output, int days, int stations, unsigned seed
     std::mt19937 random(seed);
     std::normal_distribution<double> noise(0.0, 4.0);
 
-    file << "timestamp_epoch,station_id,total_piles,load_kw,occupied_piles\n";
+    file << "timestamp_epoch,station_id,total_piles,capacity_kw,load_kw,occupied_piles\n";
     file << std::fixed << std::setprecision(3);
     for (int station_id = 1; station_id <= stations; ++station_id) {
         const int total_piles = 16 + station_id * 4;
@@ -117,8 +118,9 @@ void generate_data(const fs::path& output, int days, int stations, unsigned seed
             const double evening = 48.0 * std::exp(-std::pow((hour - 18) / 3.2, 2));
             double load = (12.0 + morning + evening) * station_factor * (weekend ? 0.88 : 1.0);
             load = std::clamp(load + noise(random), 0.0, total_piles * 7.0);
+            const double capacity = total_piles * 7.0;
             const int occupied = std::min(total_piles, static_cast<int>(std::ceil(load / 7.0)));
-            file << timestamp << ',' << station_id << ',' << total_piles << ',' << load << ','
+            file << timestamp << ',' << station_id << ',' << total_piles << ',' << capacity << ',' << load << ','
                  << occupied << '\n';
         }
     }
@@ -138,8 +140,10 @@ std::vector<Record> read_csv(const fs::path& input) {
     const auto timestamp_index = index_of("timestamp_epoch");
     const auto station_index = index_of("station_id");
     const auto piles_index = index_of("total_piles");
+    const auto capacity_index = index_of("capacity_kw");
     const auto load_index = index_of("load_kw");
-    const auto required_size = std::max({timestamp_index, station_index, piles_index, load_index}) + 1;
+    const auto required_size = std::max({timestamp_index, station_index, piles_index, capacity_index,
+                                         load_index}) + 1;
 
     std::vector<Record> records;
     while (std::getline(file, line)) {
@@ -147,7 +151,8 @@ std::vector<Record> read_csv(const fs::path& input) {
         const auto values = split(line);
         if (values.size() < required_size) throw std::runtime_error("malformed CSV row: " + line);
         records.push_back({std::stoll(values[timestamp_index]), std::stoi(values[station_index]),
-                           std::stoi(values[piles_index]), std::stod(values[load_index])});
+                           std::stoi(values[piles_index]), std::stod(values[capacity_index]),
+                           std::stod(values[load_index])});
     }
     if (records.empty()) throw std::runtime_error("input CSV contains no data rows");
     std::sort(records.begin(), records.end(), [](const Record& left, const Record& right) {
@@ -188,6 +193,10 @@ std::map<int, std::vector<Record>> group_by_station(const std::vector<Record>& r
             if (rows[index].total_piles <= 0) {
                 throw std::runtime_error("station " + std::to_string(station_id) +
                                          " has non-positive total_piles");
+            }
+            if (rows[index].capacity_kw <= 0.0) {
+                throw std::runtime_error("station " + std::to_string(station_id) +
+                                         " has non-positive capacity_kw");
             }
             if (index && rows[index].timestamp_epoch - rows[index - 1].timestamp_epoch != 3600) {
                 throw std::runtime_error("station " + std::to_string(station_id) +
@@ -413,9 +422,7 @@ void write_metrics(const fs::path& output, const std::array<Scores, kHorizons.si
     file << "}\n";
 }
 
-std::vector<Prediction> make_predictions(const std::vector<Record>& records, const Model& model,
-                                         double kw_per_pile) {
-    if (kw_per_pile <= 0.0) throw std::invalid_argument("kw_per_pile must be positive");
+std::vector<Prediction> make_predictions(const std::vector<Record>& records, const Model& model) {
     std::vector<Prediction> predictions;
     for (const auto& [station_id, rows] : group_by_station(records)) {
         if (rows.size() <= 168) {
@@ -423,8 +430,10 @@ std::vector<Prediction> make_predictions(const std::vector<Record>& records, con
         }
         const auto features = make_features(rows, rows.size() - 1);
         const int total_piles = rows.back().total_piles;
+        const double capacity_kw = rows.back().capacity_kw;
+        const double kw_per_pile = capacity_kw / total_piles;
         for (std::size_t horizon = 0; horizon < kHorizons.size(); ++horizon) {
-            const double load = std::max(0.0, forecast(model, horizon, features));
+            const double load = std::clamp(forecast(model, horizon, features), 0.0, capacity_kw);
             const int occupied = std::min(total_piles, static_cast<int>(std::ceil(load / kw_per_pile)));
             predictions.push_back({station_id, kHorizons[horizon], load, occupied,
                                    total_piles - occupied,
@@ -476,9 +485,9 @@ void train_command(const fs::path& input, const fs::path& model_path,
 }
 
 void predict_command(const fs::path& input, const fs::path& model_path,
-                     const fs::path& output, double kw_per_pile) {
+                     const fs::path& output) {
     write_predictions(output,
-                      make_predictions(read_csv(input), load_model(model_path), kw_per_pile));
+                      make_predictions(read_csv(input), load_model(model_path)));
 }
 
 void demo() {
@@ -492,10 +501,17 @@ void demo() {
         const auto output = root / "predictions.json";
         generate_data(data, 45, 2);
         train_command(data, model, metrics);
-        predict_command(data, model, output, 7.0);
-        const auto predictions = make_predictions(read_csv(data), load_model(model), 7.0);
+        predict_command(data, model, output);
+        const auto predictions = make_predictions(read_csv(data), load_model(model));
         assert(predictions.size() == 6);
         assert(fs::file_size(metrics) > 0 && fs::file_size(output) > 0);
+        auto capped = load_model(model);
+        capped.use_persistence.fill(false);
+        for (auto& weights : capped.weights) {
+            weights.fill(0.0);
+            weights[0] = 100000.0;
+        }
+        assert(make_predictions(read_csv(data), capped).front().load_kw == 140.0);
         auto invalid = read_csv(data);
         invalid[169].timestamp_epoch += 3600;
         try {
@@ -506,7 +522,14 @@ void demo() {
         invalid = read_csv(data);
         invalid.front().total_piles = 0;
         try {
-            static_cast<void>(make_predictions(invalid, load_model(model), 7.0));
+            static_cast<void>(make_predictions(invalid, load_model(model)));
+            assert(false);
+        } catch (const std::runtime_error&) {
+        }
+        invalid = read_csv(data);
+        invalid.front().capacity_kw = 0.0;
+        try {
+            static_cast<void>(make_predictions(invalid, load_model(model)));
             assert(false);
         } catch (const std::runtime_error&) {
         }
@@ -522,7 +545,7 @@ void usage() {
     std::cerr << "Usage:\n"
               << "  pklot_ml generate [csv] [days] [stations]\n"
               << "  pklot_ml train [csv] [model] [metrics]\n"
-              << "  pklot_ml predict [csv] [model] [json] [kw_per_pile]\n"
+              << "  pklot_ml predict [csv] [model] [json]\n"
               << "  pklot_ml demo\n";
 }
 
@@ -546,8 +569,7 @@ int main(int argc, char** argv) {
         } else if (command == "predict") {
             predict_command(argc > 2 ? argv[2] : "data/history.csv",
                             argc > 3 ? argv[3] : "models/load_forecaster.txt",
-                            argc > 4 ? argv[4] : "outputs/predictions.json",
-                            argc > 5 ? std::stod(argv[5]) : 7.0);
+                            argc > 4 ? argv[4] : "outputs/predictions.json");
         } else if (command == "demo") {
             demo();
         } else {

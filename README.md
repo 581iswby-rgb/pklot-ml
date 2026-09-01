@@ -20,7 +20,7 @@ cmake --build build
 ```bash
 python3 ml/src/prepare_stations_database.py ml/data/stations_database.json ml/data/stations_hourly.csv
 ./build/pklot_ml train ml/data/stations_hourly.csv ml/models/stations_load_forecaster.txt ml/models/stations_metrics.json
-./build/pklot_ml predict ml/data/stations_hourly.csv ml/models/stations_load_forecaster.txt ml/models/stations_predictions.json 45.302
+./build/pklot_ml predict ml/data/stations_hourly.csv ml/models/stations_load_forecaster.txt ml/models/stations_predictions.json
 python3 ml/src/export_predictions_sql.py ml/models/stations_predictions.json ml/models/stations_predictions.sql
 ```
 
@@ -35,6 +35,7 @@ python3 ml/src/export_predictions_sql.py ml/models/stations_predictions.json ml/
 | `timestamp_epoch` | 整数 | UTC Unix 时间戳，必须对齐小时 |
 | `station_id` | 整数 | 充电站 ID |
 | `total_piles` | 整数 | 站点充电桩总数 |
+| `capacity_kw` | 浮点数 | 站点总额定功率，必须大于 0 |
 | `load_kw` | 浮点数 | 该小时负荷，团队需统一平均值或峰值口径 |
 | `occupied_piles` | 整数，可选 | 占用桩数，仅用于分析 |
 
@@ -51,7 +52,7 @@ python3 ml/src/export_predictions_sql.py ml/models/stations_predictions.json ml/
 - `recommended_station_ids`：未来 1 小时低拥堵站点排序
 
 训练指标同时报告模型与“未来负荷等于当前负荷”的持续值基线。
-`kw_per_pile` 默认 `7.0`；当前站点库预测使用全局平均单桩额定功率 `45.302`。
+预测会按每个站点的 `capacity_kw / total_piles` 换算占用桩，并将预测负荷限制在站点额定容量内。
 
 ## 当前训练资产
 
@@ -68,7 +69,7 @@ python3 ml/src/export_predictions_sql.py ml/models/stations_predictions.json ml/
 ```bash
 python3 ml/src/prepare_stations_database.py ml/data/stations_database.json ml/data/stations_hourly.csv
 ./build/pklot_ml train ml/data/stations_hourly.csv ml/models/stations_load_forecaster.txt ml/models/stations_metrics.json
-./build/pklot_ml predict ml/data/stations_hourly.csv ml/models/stations_load_forecaster.txt ml/models/stations_predictions.json 45.302
+./build/pklot_ml predict ml/data/stations_hourly.csv ml/models/stations_load_forecaster.txt ml/models/stations_predictions.json
 python3 ml/src/export_predictions_sql.py ml/models/stations_predictions.json ml/models/stations_predictions.sql
 ```
 

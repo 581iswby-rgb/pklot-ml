@@ -24,7 +24,7 @@ def main(source, output):
         )
         for item in data["predictions"]:
             file.write(
-                "INSERT INTO ml_station_predictions VALUES "
+                "INSERT OR REPLACE INTO ml_station_predictions VALUES "
                 f"({int(item['station_id'])}, {int(item['horizon_hours'])}, "
                 f"{float(item['predicted_load_kw']):.4f}, "
                 f"{int(item['predicted_occupied_piles'])}, "

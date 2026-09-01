@@ -22,6 +22,7 @@
 
 - 每个站点的小时记录必须严格相差 3600 秒
 - `total_piles` 必须大于 0
+- `capacity_kw` 必须大于 0，预测负荷会限制在该站额定容量内
 
 ## 模型与切分
 
@@ -43,8 +44,8 @@
 - 预测文件：`ml/models/stations_predictions.json`
 - 输出数量：7815 条预测，等于 2605 个站点 × 3 个预测跨度
 - 推荐列表：`recommended_station_ids` 按未来 1 小时低拥堵率排序
-- 拥堵率范围：0.0189 到 1.0000
+- 拥堵率范围：0.0800 到 1.0000
 
 ## 限制
 
-当前模型不能声称基于真实运营负载训练。若后续接入真实订单、充电桩心跳或占用日志，只需转换成 `timestamp_epoch,station_id,total_piles,load_kw` CSV 合同后重新训练。
+当前模型不能声称基于真实运营负载训练。若后续接入真实订单、充电桩心跳或占用日志，只需转换成 `timestamp_epoch,station_id,total_piles,capacity_kw,load_kw` CSV 合同后重新训练。
